@@ -1,0 +1,24 @@
+# Python / env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+# Secrets
+.env
+.env.*
+!.env.example
+# Local DB / generated
+db.sqlite3
+*.log
+staticfiles/
+# Census downloads (fetched by load_places)
+data/*.zip
+data/2026_Gaz_*.txt
+# Personal notes
+PLAN.md
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
