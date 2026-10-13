@@ -197,4 +197,11 @@ FUEL = {
     'CORRIDOR_MILES': 10,
 }
 
-CENSUS_PLACES_PATH = BASE_DIR / 'data' / 'census_places.txt'
+
+# Data files
+
+DATA_DIR = BASE_DIR / 'data'
+# Census Gazetteer files (public domain); `load_places` downloads them into DATA_DIR.
+CENSUS_GAZETTEER_URL = 'https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2026_Gazetteer/'
+CENSUS_PLACES_FILE = '2026_Gaz_place_national'
+CENSUS_COUSUBS_FILE = '2026_Gaz_cousubs_national'
