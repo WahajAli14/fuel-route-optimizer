@@ -8,7 +8,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from routing.models import CityCoord
+from routing.models import CityCoord, DataVersion
 from routing.services.city_index import place_priority
 from routing.services.places import PlaceIndex, read_cousubs, read_places
 
@@ -44,13 +44,16 @@ class Command(BaseCommand):
                 unique_fields=['state', 'key'],
                 update_fields=['name', 'lat', 'lng', 'source', 'priority', 'land_area'],
             )
+            # In-memory city indexes are keyed on the data version.
+            version = DataVersion.bump()
 
         by_source = {s: sum(r.source == s for r in rows) for s in CENSUS_SOURCES}
         self.stdout.write(self.style.SUCCESS(
             f'Loaded {len(rows):,} city keys '
             f'({by_source[CityCoord.SOURCE_CENSUS_PLACE]:,} places, '
             f'{by_source[CityCoord.SOURCE_CENSUS_COUSUB]:,} county subdivisions; '
-            f'replaced {removed:,} old rows) in {time.monotonic() - started:.1f}s.'
+            f'replaced {removed:,} old rows) in {time.monotonic() - started:.1f}s. '
+            f'Data version is now v{version}.'
         ))
 
     def ensure_file(self, name, redownload):
