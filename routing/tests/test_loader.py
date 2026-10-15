@@ -177,6 +177,7 @@ class LoaderCommandTests(TestCase):
                 'NV,Ghost Town,,,not_found',
                 'PA,Breezewood,39.99,-78.24,nominatim',
             ])
+        self.assertNotIn(b'\r', (self.data_dir / 'geocoded_cities.csv').read_bytes())  # LF only
         CityCoord.objects.filter(source__in=['nominatim', 'not_found']).delete()
         self.run_cmd('load_places')
         self.assertEqual(CityCoord.objects.get(key='breezewood').lat, 39.99)

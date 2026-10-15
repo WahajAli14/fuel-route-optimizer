@@ -22,7 +22,7 @@ def export_rows(path):
             .order_by('state', 'name').values_list(*FIELDS))
     count = 0
     with open(path, 'w', newline='') as f:
-        writer = csv.writer(f)
+        writer = csv.writer(f, lineterminator='\n')  # LF, not csv's default CRLF
         writer.writerow(FIELDS)
         for state, name, lat, lng, source in rows:
             writer.writerow([state, name, '' if lat is None else lat, '' if lng is None else lng,
