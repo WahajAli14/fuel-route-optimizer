@@ -21,16 +21,19 @@ cheapest subset. It models what optimize() does:
 Objective compared: fuel cost + penalty x number of stops.
 """
 
+import dataclasses
 import itertools
 import random
 import statistics
 import sys
+from unittest import mock
 
 import numpy as np
 from django.test import SimpleTestCase
 from scipy.optimize import linprog
 
 from routing.services.corridor import Candidate, Station
+from routing.services import optimizer
 from routing.services.optimizer import NoFeasibleRoute, optimize
 
 RANGE, MPG, START = 500.0, 10.0, 25.0
@@ -168,3 +171,46 @@ class OptimizerReferenceTests(SimpleTestCase):
                             f'mean {statistics.mean(v) * 100:.4f}%' for p, v in gaps.items())
         print(f'\n[LP reference] {checked} plans checked ({assumed} assumed origin fills). '
               f'{summary}', file=sys.stderr)
+
+
+class ReferenceSanityTests(SimpleTestCase):
+    """The reference and the replay must be able to fail: check that they do."""
+
+    def run_optimizer(self, candidates, total, origin, penalty=0.0):
+        return optimize(candidates, total, max_range_miles=RANGE, mpg=MPG, start_fuel_miles=START,
+                        origin_station=origin, stop_penalty=penalty)
+
+    def test_hand_computed_case(self):
+        # $4 at mile 0, $3 at mile 200, 600 miles: buy 20 gal at $4 to reach the
+        # cheaper station, then 40 gal at $3 to finish = $200.
+        candidates = [Candidate(make_station(1, 4.0), 0.0, 0.0, 0.0, 0.0),
+                      Candidate(make_station(2, 3.0), 200.0, 0.0, 0.0, 0.0)]
+        self.assertAlmostEqual(reference(candidates, 600.0, make_station(9, 9.0), 0.0), 200.0,
+                               places=6)
+        # 600 mi needs both stops (one tank covers 500), so a $5 penalty adds 2 x $5.
+        self.assertAlmostEqual(reference(candidates, 600.0, make_station(9, 9.0), 5.0), 210.0,
+                               places=6)
+
+    def test_coarse_grid_gap_is_caught(self):
+        """A 2-gallon grid makes plans worse; the 1% check must notice on some route."""
+        rng = random.Random(2026)
+        worst = 0.0
+        with mock.patch.object(optimizer, 'LEVEL_GALLONS', 2.0):
+            for _ in range(ROUTES):
+                candidates, total, origin = random_route(rng)
+                plan = self.run_optimizer(candidates, total, origin)
+                best = reference(candidates, total, origin, 0.0)
+                worst = max(worst, (plan.total_cost - best) / best)
+                if worst > 0.01:
+                    break
+        self.assertGreater(worst, 0.01)
+
+    def test_replay_flags_an_infeasible_plan(self):
+        candidates = [Candidate(make_station(1, 3.0), 0.0, 0.0, 0.0, 2.0),
+                      Candidate(make_station(2, 3.5), 400.0, 0.0, 0.0, 1.0)]
+        plan = self.run_optimizer(candidates, 700.0, make_station(9, 9.0))
+        replay(self, plan, 700.0)  # the real plan passes
+        short = dataclasses.replace(plan.stops[-1], gallons=plan.stops[-1].gallons - 5)
+        plan.stops[-1] = short  # 50 miles of fuel missing
+        with self.assertRaises(self.failureException):
+            replay(self, plan, 700.0)
