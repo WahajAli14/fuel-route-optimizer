@@ -140,6 +140,13 @@ class StationIndex:
                     cls._version = version
         return cls._cached
 
+    def nearest(self, lat, lng):
+        """(station, miles) for the station closest to a point, or (None, None)."""
+        if self.tree is None:
+            return None, None
+        chord, i = self.tree.query(to_unit_vectors([lat], [lng])[0])
+        return self.stations[i], float(chord_to_miles(chord))
+
     def candidates(self, route, corridor_miles):
         """Stations within `corridor_miles` of the route, sorted by mile marker."""
         if self.tree is None:

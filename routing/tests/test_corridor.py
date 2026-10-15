@@ -79,7 +79,7 @@ class CorridorTests(TestCase):
         make_station(4, 43.0, -90.0)     # past the finish by ~69 mi
         make_station(5, 34.05, -118.24)  # far away
 
-        route, found = stations_along(NORTH_ROUTE, corridor_miles=10)
+        _, found = stations_along(NORTH_ROUTE, corridor_miles=10)
         self.assertEqual([c.station.opis_id for c in found], [2, 1])
 
         first = found[0]
@@ -106,7 +106,16 @@ class CorridorTests(TestCase):
         _, found = stations_along(NORTH_ROUTE, corridor_miles=10)
         self.assertEqual([c.station.opis_id for c in found], [3, 1, 2])
 
+    def test_nearest_station(self):
+        make_station(1, 41.0, -90.05)
+        make_station(2, 34.05, -118.24)
+        station, miles = StationIndex.current().nearest(40.0, -90.0)
+        self.assertEqual(station.opis_id, 1)
+        self.assertAlmostEqual(miles, float(haversine_miles(40.0, -90.0, 41.0, -90.05)), places=6)
+
     def test_no_stations(self):
+        self.assertEqual(StationIndex.current().nearest(40.0, -90.0), (None, None))
+
         route, found = stations_along(NORTH_ROUTE, corridor_miles=10)
         self.assertEqual(found, [])
         self.assertGreater(route.total_miles, 0)

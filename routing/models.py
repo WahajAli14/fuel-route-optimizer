@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.utils import timezone
 
 
 class CityCoord(models.Model):
@@ -84,8 +85,6 @@ class DataVersion(models.Model):
 
     @classmethod
     def bump(cls):
-        from django.utils import timezone
-
         with transaction.atomic():
             row, _ = cls.objects.select_for_update().get_or_create(pk=1)
             row.version += 1

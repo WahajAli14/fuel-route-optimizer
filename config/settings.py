@@ -189,12 +189,18 @@ NOMINATIM_USER_AGENT = os.environ.get('NOMINATIM_USER_AGENT', 'spotter-fuel-rout
 FUEL = {
     'MAX_RANGE_MILES': 500,
     'MPG': 10,
-    # Truck starts empty and must buy fuel within this many miles of the origin.
+    # The truck starts with just enough fuel to reach its first station, which
+    # must be within this many miles of the origin; that fuel is billed at the
+    # first station's price.
     # If no station is that close, an origin fill at the nearest station's price
     # is assumed and the response sets assumed_origin_fill=true.
     'START_FUEL_SEARCH_MILES': 25,
     # Max distance from the route for a station to count (overridable per request).
     'CORRIDOR_MILES': 10,
+    # Optional dollars a fuel stop must save to be worth making (fewer, larger
+    # stops). 0 = pure fuel cost; a request can pass e.g. 5. Never added to
+    # the reported fuel cost.
+    'STOP_PENALTY_DOLLARS': 0,
 }
 
 
