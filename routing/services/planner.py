@@ -17,12 +17,22 @@ Distances in the response:
                          route point
     detour_miles         sum of round trips (2 x one-way) over the stops made
     total_driving_miles  route_miles + detour_miles; total_gallons is this / MPG
+
+Caching: the computed result is cached under a key built from the resolved
+places (not the caller's text) and every input that changes the plan, so
+"Chicago, IL" and "chicago, illinois" share an entry. The cached value holds
+no caller input: start/finish `query` and all of `meta` are rebuilt from the
+current request on every call, hit or miss.
 """
 
+import hashlib
+import json
+import logging
 import math
 import time
 
 from django.conf import settings
+from django.core.cache import cache
 
 from ..models import DataVersion
 from .corridor import StationIndex, stations_along
@@ -31,6 +41,8 @@ from .optimizer import optimize
 from .ors_client import client_from_settings
 
 _GALLON_TOLERANCE = 1e-6
+
+logger = logging.getLogger(__name__)
 
 
 def _ms(start):
@@ -46,8 +58,8 @@ def _resolve(resolver, text, field):
 
 
 def _place(location):
-    return {'query': location.query, 'label': location.label,
-            'lat': location.lat, 'lng': location.lng}
+    """The resolved place, without the caller's query text (that is added per request)."""
+    return {'label': location.label, 'lat': location.lat, 'lng': location.lng}
 
 
 def _stop(stop, origin):
@@ -77,23 +89,27 @@ def _stop(stop, origin):
     }
 
 
-def plan_route(start, finish, *, corridor_miles, stop_penalty, client=None):
-    """Run the full pipeline and return the response dict.
-
-    Raises LocationError (with .field), RoutingError or NoFeasibleRoute.
-    """
+def cache_key(origin, destination, *, corridor_miles, stop_penalty, profile, data_version):
+    """Everything that changes the computed result, and nothing from the caller's text."""
     fuel = settings.FUEL
-    started = time.perf_counter()
-    timings = {}
+    parts = {
+        'start': [origin.label, round(origin.lat, 6), round(origin.lng, 6)],
+        'finish': [destination.label, round(destination.lat, 6), round(destination.lng, 6)],
+        'corridor_miles': float(corridor_miles),
+        'stop_penalty': float(stop_penalty),
+        'profile': profile,
+        'max_range_miles': fuel['MAX_RANGE_MILES'],
+        'mpg': fuel['MPG'],
+        'start_fuel_miles': fuel['START_FUEL_SEARCH_MILES'],
+    }
+    digest = hashlib.sha256(json.dumps(parts, sort_keys=True).encode()).hexdigest()[:32]
+    return f'route:v{data_version}:{digest}'
 
-    t = time.perf_counter()
-    resolver = LocationResolver()
-    origin = _resolve(resolver, start, 'start')
-    destination = _resolve(resolver, finish, 'finish')
-    timings['resolve_ms'] = _ms(t)
 
-    client = client or client_from_settings()
-    calls_before = client.calls
+def _compute(origin, destination, *, corridor_miles, stop_penalty, client, timings):
+    """The computed (cacheable) part of the response. Makes one routing call."""
+    fuel = settings.FUEL
+
     t = time.perf_counter()
     route = client.route((origin.lat, origin.lng), (destination.lat, destination.lng))
     timings['routing_ms'] = _ms(t)
@@ -132,16 +148,61 @@ def plan_route(start, finish, *, corridor_miles, stop_penalty, client=None):
         'total_gallons': round(plan.total_gallons, 2),
         'total_fuel_cost': round(plan.total_cost, 2),
         'assumed_origin_fill': plan.assumed_origin_fill,
-        'meta': {
-            'external_api_calls': client.calls - calls_before,
-            'cache_hit': False,
-            'elapsed_ms': _ms(started),
-            'timings': timings,
-            'data_version': DataVersion.current(),
-            'stop_penalty_dollars': stop_penalty,
-            'corridor_miles': corridor_miles,
-            'ors_profile': route.profile,
+        'route_info': {
             'ors_summary_miles': round(route.distance_miles, 1),
             'route_warnings': route.warnings,
         },
     }
+
+
+def plan_route(start, finish, *, corridor_miles, stop_penalty, client=None, use_cache=True):
+    """Run the pipeline (or reuse a cached result) and return the response dict.
+
+    use_cache=False always computes and stores nothing (for timing replays).
+
+    Raises LocationError (with .field), RoutingError or NoFeasibleRoute.
+    """
+    started = time.perf_counter()
+    timings = {}
+
+    t = time.perf_counter()
+    resolver = LocationResolver()
+    origin = _resolve(resolver, start, 'start')
+    destination = _resolve(resolver, finish, 'finish')
+    timings['resolve_ms'] = _ms(t)
+
+    client = client or client_from_settings()
+    data_version = DataVersion.current()
+    key = cache_key(origin, destination, corridor_miles=corridor_miles,
+                    stop_penalty=stop_penalty, profile=client.profile, data_version=data_version)
+
+    t = time.perf_counter()
+    computed = cache.get(key) if use_cache else None
+    timings['cache_get_ms'] = _ms(t)
+    hit = computed is not None
+    calls_before = client.calls
+    if not hit:
+        computed = _compute(origin, destination, corridor_miles=corridor_miles,
+                            stop_penalty=stop_penalty, client=client, timings=timings)
+        if use_cache:
+            cache.set(key, computed)
+
+    # Request-specific fields, rebuilt on every call (never read from the cache).
+    result = {key_: value for key_, value in computed.items() if key_ != 'route_info'}
+    result['start'] = {'query': origin.query, **computed['start']}
+    result['finish'] = {'query': destination.query, **computed['finish']}
+    result['meta'] = {
+        'external_api_calls': client.calls - calls_before,
+        'cache_hit': hit,
+        'elapsed_ms': _ms(started),
+        'timings': timings,
+        'data_version': data_version,
+        'stop_penalty_dollars': stop_penalty,
+        'corridor_miles': corridor_miles,
+        'ors_profile': client.profile,
+        **computed['route_info'],
+    }
+    logger.info('route %s -> %s: cache_hit=%s calls=%s elapsed_ms=%s timings=%s',
+                origin.label, destination.label, hit, result['meta']['external_api_calls'],
+                result['meta']['elapsed_ms'], timings)
+    return result

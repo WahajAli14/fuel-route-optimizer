@@ -158,6 +158,19 @@ else:
     }
 
 
+# Logging: per-request timings from routing.services.planner at INFO.
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {'console': {'class': 'logging.StreamHandler'}},
+    'loggers': {
+        'routing': {'handlers': ['console'],
+                    'level': os.environ.get('ROUTING_LOG_LEVEL', 'INFO')},
+    },
+}
+
+
 # Django REST Framework
 
 REST_FRAMEWORK = {

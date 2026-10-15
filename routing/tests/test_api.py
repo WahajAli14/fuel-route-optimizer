@@ -1,10 +1,11 @@
 from decimal import Decimal
 from unittest import mock
 
+from django.core.cache import cache
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from routing.models import CityCoord, FuelStation
+from routing.models import CityCoord, DataVersion, FuelStation
 from routing.services import planner
 from routing.services.corridor import StationIndex
 from routing.services.locations import LocationResolver
@@ -45,8 +46,12 @@ def station(opis_id, lat, lng, price, city_name='Town'):
                                min_price=price, max_price=price, lat=lat, lng=lng)
 
 
-class RouteApiTests(TestCase):
+class RouteTestBase(TestCase):
+    """Shared fixtures: two cities, three stations along a due-north route, a fake ORS."""
+
     def setUp(self):
+        cache.clear()
+        self.addCleanup(cache.clear)
         for cls, attrs in ((LocationResolver, ('_index', '_version')),
                            (StationIndex, ('_cached', '_version'))):
             for attr in attrs:
@@ -66,6 +71,9 @@ class RouteApiTests(TestCase):
     def post(self, **body):
         body = {'start': 'Alpha, IL', 'finish': 'Omega, WI', **body}
         return self.api.post('/api/route/', body, format='json')
+
+
+class RouteApiTests(RouteTestBase):
 
     def test_happy_path(self):
         response = self.post()
@@ -95,7 +103,7 @@ class RouteApiTests(TestCase):
         self.assertEqual((meta['stop_penalty_dollars'], meta['corridor_miles']), (0.0, 10.0))
         self.assertEqual(meta['ors_profile'], 'driving-hgv')
         self.assertEqual(set(meta['timings']),
-                         {'resolve_ms', 'routing_ms', 'corridor_ms', 'optimize_ms'})
+                         {'resolve_ms', 'cache_get_ms', 'routing_ms', 'corridor_ms', 'optimize_ms'})
         self.assertEqual(self.ors.calls, 1)
 
     def test_distances_and_gallons_reconcile(self):
@@ -185,3 +193,58 @@ class RouteApiTests(TestCase):
         page = self.api.get('/api/route/map/', {'start': 'Atlantis, IL', 'finish': 'Omega, WI'})
         self.assertEqual(page.status_code, 400)
         self.assertContains(page, 'Could not find', status_code=400)
+
+
+class RouteCacheTests(RouteTestBase):
+    def test_repeat_request_is_a_hit_with_fresh_meta(self):
+        first = self.post().json()
+        second = self.post().json()
+        self.assertEqual(self.ors.calls, 1)
+        self.assertEqual((first['meta']['cache_hit'], first['meta']['external_api_calls']), (False, 1))
+        self.assertEqual((second['meta']['cache_hit'], second['meta']['external_api_calls']), (True, 0))
+        self.assertNotIn('routing_ms', second['meta']['timings'])
+        self.assertEqual(second['meta']['stop_penalty_dollars'], 0.0)
+        for field in ('fuel_stops', 'total_fuel_cost', 'route_geojson', 'total_gallons'):
+            self.assertEqual(first[field], second[field])
+
+    def test_equivalent_spelling_hits_and_echoes_its_own_query(self):
+        self.post(start='Alpha, IL', finish='Omega, WI')
+        data = self.post(start='alpha, illinois', finish='Omega, Wisconsin, USA').json()
+        self.assertTrue(data['meta']['cache_hit'])
+        self.assertEqual(self.ors.calls, 1)
+        self.assertEqual(data['start'], {'query': 'alpha, illinois', 'label': 'Alpha, IL',
+                                         'lat': 38.0, 'lng': -90.0})
+        self.assertEqual(data['finish']['query'], 'Omega, Wisconsin, USA')
+
+    def test_data_version_bump_misses(self):
+        self.post()
+        DataVersion.bump()
+        data = self.post().json()
+        self.assertFalse(data['meta']['cache_hit'])
+        self.assertEqual(self.ors.calls, 2)
+
+    def test_penalty_corridor_and_profile_are_part_of_the_key(self):
+        self.post()
+        self.assertFalse(self.post(stop_penalty=5).json()['meta']['cache_hit'])
+        self.assertFalse(self.post(corridor_miles=20).json()['meta']['cache_hit'])
+        self.ors.profile = 'driving-car'
+        data = self.post().json()
+        self.assertFalse(data['meta']['cache_hit'])
+        self.assertEqual(data['meta']['ors_profile'], 'driving-car')
+        self.assertEqual(self.ors.calls, 4)
+        self.assertFalse(self.post(stop_penalty=5).json()['meta']['cache_hit'])  # car + $5 is new
+        self.assertTrue(self.post().json()['meta']['cache_hit'])
+
+    def test_errors_are_not_cached(self):
+        self.ors.error = RoutingError('Routing rate limit reached.', status=503)
+        self.assertEqual(self.post().status_code, 503)
+        self.ors.error = None
+        data = self.post().json()
+        self.assertFalse(data['meta']['cache_hit'])
+        self.assertEqual(self.ors.calls, 2)
+
+    def test_map_page_uses_the_same_cache(self):
+        self.post()
+        page = self.api.get('/api/route/map/', {'start': 'Alpha, IL', 'finish': 'Omega, WI'})
+        self.assertContains(page, '"cache_hit": true')
+        self.assertEqual(self.ors.calls, 1)
