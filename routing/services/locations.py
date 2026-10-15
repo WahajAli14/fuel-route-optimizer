@@ -12,6 +12,7 @@ import threading
 from dataclasses import dataclass
 
 from ..models import DataVersion
+from . import us_boundary
 from .city_index import load_city_index
 
 US_STATES = {
@@ -32,7 +33,8 @@ _STATE_BY_NAME = {name.lower(): code for code, name in US_STATES.items()}
 _COUNTRY_SUFFIXES = {'usa', 'us', 'u.s.', 'u.s.a.', 'united states', 'united states of america'}
 _LATLNG_RE = re.compile(r'^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$')
 
-# (min_lat, max_lat, min_lng, max_lng): lower 48, Alaska, Hawaii.
+# (min_lat, max_lat, min_lng, max_lng): lower 48, Alaska, Hawaii. A fast pre-filter
+# only: the boxes also cover parts of Canada and Mexico.
 _US_BOXES = [
     (24.4, 49.5, -125.0, -66.9),
     (51.0, 71.5, -180.0, -129.0),
@@ -57,7 +59,10 @@ class Location:
 
 
 def in_us(lat, lng):
-    return any(a <= lat <= b and c <= lng <= d for a, b, c, d in _US_BOXES)
+    """Inside the US boundary (boxes first, then the Census polygon)."""
+    if not any(a <= lat <= b and c <= lng <= d for a, b, c, d in _US_BOXES):
+        return False
+    return us_boundary.contains(lat, lng)
 
 
 def parse_state(text):

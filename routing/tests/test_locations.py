@@ -19,6 +19,44 @@ class ParseStateTests(TestCase):
         self.assertFalse(in_us(51.51, -0.13))   # London
 
 
+# Inside the old rectangles but outside the US: the boundary polygon must reject them.
+FOREIGN = {
+    'Toronto': (43.6532, -79.3832),
+    'Vancouver': (49.2827, -123.1207),
+    'Windsor, ON': (42.3149, -83.0364),   # across the river from Detroit
+    'Tijuana': (32.5149, -117.0382),
+}
+# US cities, many on the border or a coast.
+US_CITIES = {
+    'Detroit': (42.3314, -83.0458),
+    'Buffalo': (42.8864, -78.8784),
+    'Seattle': (47.6062, -122.3321),
+    'San Diego': (32.7157, -117.1611),
+    'El Paso': (31.7619, -106.4850),
+    'Key West': (24.5551, -81.7800),
+    'Anchorage': (61.2181, -149.9003),
+    'Honolulu': (21.3069, -157.8583),
+}
+
+
+class BoundaryTests(TestCase):
+    def test_foreign_border_cities_are_rejected(self):
+        resolver = LocationResolver()
+        for name, (lat, lng) in FOREIGN.items():
+            with self.subTest(name):
+                self.assertFalse(in_us(lat, lng))
+                with self.assertRaises(LocationError) as ctx:
+                    resolver.resolve(f'{lat},{lng}')
+                self.assertIn('outside the USA', ctx.exception.message)
+
+    def test_us_border_and_coastal_cities_are_accepted(self):
+        resolver = LocationResolver()
+        for name, (lat, lng) in US_CITIES.items():
+            with self.subTest(name):
+                self.assertTrue(in_us(lat, lng))
+                self.assertEqual(resolver.resolve(f'{lat},{lng}').source, 'coordinates')
+
+
 class LocationResolverTests(TestCase):
     def setUp(self):
         # The index is cached on the class; start each test from the DB.

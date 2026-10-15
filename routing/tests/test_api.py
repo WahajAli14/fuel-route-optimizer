@@ -141,6 +141,14 @@ class RouteApiTests(RouteTestBase):
             self.assertEqual((error['code'], error['field']), ('invalid_location', field))
         self.assertEqual(self.ors.calls, 0)
 
+    def test_foreign_coordinates_inside_the_old_boxes_are_400(self):
+        for coords in ('43.6532,-79.3832', '49.2827,-123.1207', '42.3149,-83.0364',
+                       '32.5149,-117.0382'):
+            response = self.post(start=coords)
+            self.assertEqual(response.status_code, 400, coords)
+            self.assertIn('outside the USA', response.json()['error']['message'])
+        self.assertEqual(self.ors.calls, 0)
+
     def test_invalid_fields_are_400(self):
         response = self.api.post('/api/route/', {'start': 'Alpha, IL'}, format='json')
         self.assertEqual(response.status_code, 400)

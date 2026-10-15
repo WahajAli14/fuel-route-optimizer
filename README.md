@@ -59,7 +59,7 @@ use a mocked client or the saved responses in `routing/tests/fixtures/`.
 
 | Field | Required | Notes |
 |---|---|---|
-| `start`, `finish` | yes | `"City, ST"`, `"City, State"`, an optional trailing `", USA"`, or `"lat,lng"`. Must be in the USA. |
+| `start`, `finish` | yes | `"City, ST"`, `"City, State"`, an optional trailing `", USA"`, or `"lat,lng"`. Must be in the USA: raw coordinates are checked against the US boundary (see [Data sources](#data-sources)). |
 | `corridor_miles` | no | How far off the route a station may be, 1-50. Default 10. |
 | `stop_penalty` | no | Dollars a stop must save to be worth making, >= 0. Default 0 (pure fuel cost). See [Assumptions](#assumptions). |
 
@@ -218,6 +218,23 @@ routes from the saved responses, with no ORS calls.
   50 seeded test routes (up to 8 stations each, penalties $0 and $5;
   `routing/tests/test_optimizer_reference.py`). That is the gap observed on
   those test routes, not a general accuracy guarantee.
+
+## Data sources
+
+- **Fuel prices:** `data/fuel-prices-for-be-assessment.csv`, provided with the
+  assignment.
+- **City coordinates:** US Census Bureau 2026 Gazetteer Files (Places and County
+  Subdivisions), public domain, downloaded by `load_places`.
+- **Cities the Census files lack:** looked up once on OpenStreetMap Nominatim
+  (data (c) OpenStreetMap contributors, ODbL) and committed in
+  `data/geocoded_cities.csv`.
+- **US boundary:** `data/us_nation_5m.geojson`, the US Census Bureau 2024
+  Cartographic Boundary File for the nation at 1:5,000,000
+  (`cb_2024_us_nation_5m`), public domain, converted from KML to GeoJSON with
+  coordinates rounded to 5 decimals. Raw `lat,lng` inputs are tested against it
+  with a point-in-polygon check. The 1:20,000,000 file was too coarse at the
+  Detroit River: it placed Windsor, Ontario inside the US.
+- **Routing:** OpenRouteService directions API (free tier).
 
 ## In production I would...
 

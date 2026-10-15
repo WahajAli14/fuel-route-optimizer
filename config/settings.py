@@ -226,3 +226,6 @@ CENSUS_PLACES_FILE = '2026_Gaz_place_national'
 CENSUS_COUSUBS_FILE = '2026_Gaz_cousubs_national'
 # Committed Nominatim answers for cities the Census files lack (see export_geocoded_cities).
 GEOCODED_CITIES_FILE = 'geocoded_cities.csv'
+# US boundary for raw lat,lng input: Census cartographic boundary, nation, 1:5,000,000
+# (2024), converted from KML to GeoJSON. The 1:20m file puts Windsor, ON inside the US.
+US_BOUNDARY_FILE = 'us_nation_5m.geojson'
