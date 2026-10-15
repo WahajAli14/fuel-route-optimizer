@@ -169,8 +169,10 @@ class OptimizerTests(SimpleTestCase):
             bound = lower_bound_cost(candidates, total)
             # The exact greedy (second pass) on every station reaches the bound.
             nodes = [_Node(c.mile_marker, 0.0, c.station.price, c) for c in candidates]
-            purchases, _ = _greedy(nodes + [_Node(total, 0.0, 0.0)], 0.0, RANGE)
-            self.assertAlmostEqual(sum(m / MPG * n.price for n, m in purchases), bound, delta=0.05)
+            greedy_nodes = nodes + [_Node(total, 0.0, 0.0)]
+            purchases, _ = _greedy(greedy_nodes, 0.0, RANGE)
+            self.assertAlmostEqual(sum(m / MPG * greedy_nodes[k].price for k, m in purchases),
+                                   bound, delta=0.05)
             # The full optimizer picks stops on a 0.1 gal grid: within 0.5% of it.
             # (The bound starts at the mile-0 station, so no start radius here.)
             plan = run(candidates, total, start_fuel_miles=0)
@@ -190,6 +192,9 @@ class OptimizerTests(SimpleTestCase):
                                        detour=rng.uniform(0, 10)))
             plan = run(candidates, total)
             self.assertAlmostEqual(plan.total_gallons, (total + plan.detour_miles) / MPG, places=6)
+            # Top-level detour is the round trip to each stop actually made.
+            self.assertAlmostEqual(plan.detour_miles,
+                                   sum(2 * s.candidate.detour_miles for s in plan.stops), places=9)
             for stop in plan.stops:
                 self.assertGreater(stop.gallons, 0)
                 self.assertLessEqual(stop.gallons, RANGE / MPG + 2 * 10 / MPG + 1e-9)

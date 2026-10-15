@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fuel Route Map</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, sans-serif; }
+    body { display: flex; flex-direction: column; background: #fff; color: #1f2328; }
+    header { padding: 10px 16px; border-bottom: 1px solid #d0d7de; }
+    header h1 { font-size: 16px; margin: 0 0 4px; }
+    header p { margin: 0; font-size: 13px; color: #57606a; }
+    #map { flex: 1; }
+    .error { padding: 16px; color: #cf222e; }
+    .popup b { display: block; margin-bottom: 2px; }
+    .popup small { color: #57606a; }
+  </style>
+</head>
+<body>
+{% if error %}
+  <div class="error">
+    <h1>Could not plan this route</h1>
+    <p>{{ error.message }}</p>
+  </div>
+{% else %}
+  <header>
+    <h1>{{ result.start.label }} &rarr; {{ result.finish.label }}</h1>
+    <p>
+      {{ result.route_miles }} mi route + {{ result.detour_miles }} mi detours &middot;
+      {{ result.fuel_stops|length }} fuel stop{{ result.fuel_stops|length|pluralize }} &middot;
+      {{ result.total_gallons }} gal &middot; total fuel cost ${{ result.total_fuel_cost }}
+      {% if result.assumed_origin_fill %}&middot; includes an assumed origin fill{% endif %}
+    </p>
+  </header>
+  <div id="map"></div>
+  {{ result|json_script:"route-data" }}
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script>
+    const data = JSON.parse(document.getElementById('route-data').textContent);
+    const map = L.map('map');
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
+
+    const line = L.polyline(data.route_geojson.coordinates.map(([lng, lat]) => [lat, lng]),
+                            {color: '#0969da', weight: 4}).addTo(map);
+    map.fitBounds(line.getBounds(), {padding: [20, 20]});
+
+    L.circleMarker([data.start.lat, data.start.lng], {radius: 7, color: '#1a7f37'})
+      .addTo(map).bindTooltip('Start: ' + data.start.label);
+    L.circleMarker([data.finish.lat, data.finish.lng], {radius: 7, color: '#cf222e'})
+      .addTo(map).bindTooltip('Finish: ' + data.finish.label);
+
+    // Built with textContent so station names are never parsed as HTML.
+    function popup(stop, index) {
+      const box = document.createElement('div');
+      box.className = 'popup';
+      const add = (tag, text) => {
+        const el = document.createElement(tag);
+        el.textContent = text;
+        box.appendChild(el);
+      };
+      add('b', `${index + 1}. ${stop.name}` + (stop.assumed ? ' (assumed origin fill)' : ''));
+      add('div', `${stop.city}, ${stop.state} · ${stop.address}`);
+      add('div', `$${stop.price.toFixed(3)}/gal · ${stop.gallons.toFixed(2)} gal · $${stop.cost.toFixed(2)}`);
+      if (!stop.assumed) {
+        add('div', `Mile ${stop.route_point.mile_marker} · about ${stop.detour_miles} mi off the route`);
+      }
+      add('small', 'Station location is city-level; the marker sits on the nearest route point.');
+      return box;
+    }
+
+    data.fuel_stops.forEach((stop, i) => {
+      L.marker([stop.route_point.lat, stop.route_point.lng], {title: stop.name})
+        .addTo(map).bindPopup(popup(stop, i));
+    });
+  </script>
+{% endif %}
+</body>
+</html>

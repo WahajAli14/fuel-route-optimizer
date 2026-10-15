@@ -194,10 +194,10 @@ def _greedy(nodes, fuel, max_range_miles):
     """Exact purchases (in miles of fuel) over a fixed list of stops ending at the destination.
 
     nodes[0] is the first stop, reached with `fuel` miles in the tank (negative
-    when the approach is still owed). Returns [(node, miles bought)] and the
-    detour miles driven.
+    when the approach is still owed). Returns [(node index, miles bought)] and
+    the indices of every node driven to, including any where nothing was bought.
     """
-    purchases, detour = [], 2 * nodes[0].detour
+    purchases, visited = [], [0]
     i = 0
     while i < len(nodes) - 1:
         here = nodes[i]
@@ -211,11 +211,11 @@ def _greedy(nodes, fuel, max_range_miles):
             target, need = min(reachable, key=lambda r: (nodes[r[0]].price, -r[0]))
             amount = max_range_miles - fuel   # a negative fuel (approach debt) is settled too
         if amount > _EPS:
-            purchases.append((here, amount))
+            purchases.append((i, amount))
         fuel += amount - need
-        detour += 2 * nodes[target].detour
+        visited.append(target)
         i = target
-    return purchases, detour
+    return purchases, visited[:-1]  # the destination is not a stop
 
 
 def optimize(candidates, total_miles, *, max_range_miles, mpg, start_fuel_miles,
@@ -247,9 +247,22 @@ def optimize(candidates, total_miles, *, max_range_miles, mpg, start_fuel_miles,
     chosen = _choose_stops(nodes, starts, max_range_miles, mpg, stop_penalty)
     first = nodes[chosen[0]]
     route = [nodes[k] for k in chosen] + [nodes[-1]]
-    purchases, plan.detour_miles = _greedy(route, -(first.mile + first.detour), max_range_miles)
+    while True:
+        purchases, visited = _greedy(route, -(first.mile + first.detour), max_range_miles)
+        bought = {k for k, _ in purchases}
+        idle = [k for k in visited if k not in bought]
+        if not idle:
+            break
+        # Safeguard: driving to a station and buying nothing only adds detour.
+        # Dropping it shortens the legs, so the plan stays feasible and never
+        # costs more. (Not expected to happen: anything reachable via such a
+        # station is also reachable directly.)
+        route = [n for k, n in enumerate(route) if k not in idle]
 
-    for node, miles in purchases:
+    # Round trip to each stop made (the first stop's approach is counted too).
+    plan.detour_miles = sum(2 * route[k].detour for k, _ in purchases)
+    for k, miles in purchases:
+        node = route[k]
         gallons = miles / mpg
         assumed = node.candidate is None
         plan.stops.append(FuelStop(
