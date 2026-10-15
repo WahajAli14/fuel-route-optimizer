@@ -1,0 +1,34 @@
+# Demo requests (VS Code REST Client, JetBrains HTTP Client, or copy into Postman).
+# Start the server first: python manage.py runserver
+
+@base = http://localhost:8000/api
+
+### Health: is the ORS key configured?
+GET {{base}}/health/
+
+### Short route (< 500 mi): one fuel stop
+POST {{base}}/route/
+Content-Type: application/json
+
+{"start": "Dallas, TX", "finish": "Houston, TX"}
+
+### Cross-country route: several fuel stops (send twice: the second is a cache hit)
+POST {{base}}/route/
+Content-Type: application/json
+
+{"start": "Chicago, IL", "finish": "Los Angeles, CA"}
+
+### Same route with the optional $5 stop penalty: fewer, larger stops
+POST {{base}}/route/
+Content-Type: application/json
+
+{"start": "Chicago, IL", "finish": "Los Angeles, CA", "stop_penalty": 5}
+
+### Invalid: outside the USA (400)
+POST {{base}}/route/
+Content-Type: application/json
+
+{"start": "Toronto, ON", "finish": "Chicago, IL"}
+
+### Map page (open in a browser)
+GET {{base}}/route/map/?start=Chicago, IL&finish=Los Angeles, CA
