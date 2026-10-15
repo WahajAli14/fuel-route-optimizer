@@ -41,6 +41,9 @@
     const map = L.map('map');
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 18,
+      // OSM's tile policy requires a Referer; Django's default Referrer-Policy
+      // (same-origin) would drop it and the tiles come back 403.
+      referrerPolicy: 'strict-origin-when-cross-origin',
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
