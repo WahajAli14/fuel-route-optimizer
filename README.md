@@ -213,7 +213,11 @@ routes from the saved responses, with no ORS calls.
   never appears in `total_fuel_cost`. The default is 0.
 - **The optimizer is approximate:** stops are chosen on a 0.1-gallon fuel grid
   with each leg rounded up, which keeps every plan feasible within the model.
-  That rounding is a feasibility safeguard, not an optimality bound.
+  That rounding is a feasibility safeguard, not an optimality bound. As a
+  measured check, its plans were within 0.073% of an exhaustive LP reference on
+  50 seeded test routes (up to 8 stations each, penalties $0 and $5;
+  `routing/tests/test_optimizer_reference.py`). That is the gap observed on
+  those test routes, not a general accuracy guarantee.
 
 ## In production I would...
 
