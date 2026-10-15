@@ -49,6 +49,21 @@ export_geocoded_cities` refreshes the file.
 Run the tests with `python manage.py test routing`. They never call ORS: they
 use a mocked client or the saved responses in `routing/tests/fixtures/`.
 
+### Optional: Redis cache
+
+Route results are cached for 24 hours. By default the cache is Django's
+in-memory cache: per process, emptied on restart, and not shared between
+workers. To share it, run Redis and set `REDIS_URL` in `.env`:
+
+```bash
+REDIS_URL=redis://localhost:6379/0
+```
+
+Django's built-in Redis backend is used (the `redis` client is already in
+`requirements.txt`; no extra package). Cache keys include the data version, so
+reloading the CSV or the places makes old entries miss rather than serve stale
+plans. The timings below were measured with the in-memory cache.
+
 ## API
 
 ### `POST /api/route/`
