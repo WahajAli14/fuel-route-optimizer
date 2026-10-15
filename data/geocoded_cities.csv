@@ -1,0 +1,144 @@
+state,name,lat,lng,source
+AL,Eastaboga,33.6059367,-86.0213587,nominatim
+AL,Fackler,34.7925827,-85.9099775,nominatim
+AL,Hope Hull,32.2698632,-86.3571916,nominatim
+AL,Irvington,30.5068623,-88.2338925,nominatim
+AL,Knoxville,33.5917715,-85.8971885,nominatim
+AR,Hot Springs National Park,,,not_found
+AR,West Helena,34.5440124,-90.6426195,nominatim
+AZ,Dewey,34.5297551,-112.2421149,nominatim
+AZ,Willow Beach,35.8697801,-114.6600654,nominatim
+CO,Dumont,39.7646887,-105.600337,nominatim
+CT,Milldale,41.5661372,-72.8999672,nominatim
+FL,Baker,30.3143459,-82.2847163,nominatim
+FL,Mc Alpin,,,not_found
+FL,Saint Johns,29.9032284,-81.4145468,nominatim
+FL,Summerfield,29.0085924,-82.0348092,nominatim
+FL,Youngstown,30.3643628,-85.4382568,nominatim
+GA,Ellabell,32.1235368,-81.4856673,nominatim
+GA,Ellenwood,33.6101096,-84.287978,nominatim
+GA,Fortson,33.3778914,-84.2888119,nominatim
+GA,Midland,,,not_found
+GA,Rabun Gap,34.9572143,-83.3864536,nominatim
+GA,Rising Fawn,34.7600791,-85.531076,nominatim
+IL,Edwards,38.410254,-88.0584362,nominatim
+IN,Grovertown,41.3750434,-86.5047339,nominatim
+IN,Saint Croix,38.2239531,-86.5863387,nominatim
+KY,Glendale,37.6017278,-85.9055189,nominatim
+KY,Isom,37.1878764,-82.8987718,nominatim
+KY,Middlesboro,36.6072968,-83.7143317,nominatim
+KY,Pendleton,38.6914606,-84.3689142,nominatim
+KY,Tollesboro,38.5595201,-83.5760258,nominatim
+KY,Waddy,38.1370153,-85.0743978,nominatim
+LA,Bethany,32.3737683,-94.0379649,nominatim
+MA,Bridgewater,41.9902206,-70.9754432,nominatim
+MA,Newton Lower Falls,42.3258005,-71.2563409,nominatim
+MA,North Billerica,42.5852621,-71.2877645,nominatim
+MA,North Oxford,42.1500947,-71.8684054,nominatim
+MD,Curtis Bay,39.2252188,-76.5900312,nominatim
+MD,Hunt Valley,39.4922608,-76.6589528,nominatim
+MD,Millersville,39.0595542,-76.6480219,nominatim
+MD,Newburg,38.3773478,-76.9533055,nominatim
+MD,Nottingham,39.1992745,-76.6371894,nominatim
+MD,Westover,38.1240114,-75.7063171,nominatim
+MI,Middleton,43.1833659,-84.7088895,nominatim
+MI,New Boston,42.1625408,-83.4029885,nominatim
+MI,Newport,42.0022672,-83.3085419,nominatim
+MI,Ottawa Lake,41.7641517,-83.7493869,nominatim
+MI,Sawyer,41.8853207,-86.5894666,nominatim
+MI,Smiths Creek,42.9139187,-82.6038085,nominatim
+MO,Bois D Arc,37.2564382,-93.507696,nominatim
+MO,Ridgedale,36.5039535,-93.2237919,nominatim
+MS,Belden,34.3103831,-88.7883888,nominatim
+MS,Lawrence,31.5129753,-90.1205396,nominatim
+MT,Milltown,46.8712952,-113.8817192,nominatim
+NC,Candler,35.5444359,-82.6838032,nominatim
+NC,Hamptonville,36.0984684,-80.760345,nominatim
+NC,Linwood,35.7506938,-80.3178306,nominatim
+NC,Supply,34.0176717,-78.267499,nominatim
+NC,Winnabow,34.1493374,-78.0936046,nominatim
+ND,Grassy Butte,47.3925145,-103.2479655,nominatim
+NH,West Chesterfield,42.9042482,-72.5156447,nominatim
+NJ,Elizabethport,40.6501031,-74.1870888,nominatim
+NJ,Monroe Township,40.335756,-74.4334464,nominatim
+NM,Casa Blanca,35.046318,-107.4713938,nominatim
+NM,Clines Corners,35.0094982,-105.66918,nominatim
+NM,Pueblo Of Acoma,,,not_found
+NM,Tinnie,33.3705561,-105.2263673,nominatim
+NV,Jean,35.7788568,-115.3243823,nominatim
+NV,Moapa,36.6673648,-114.584977,nominatim
+NY,Castle Creek,42.2275753,-75.918253,nominatim
+NY,Gansevoort,43.1962051,-73.6513967,nominatim
+NY,Glenmont,42.604802,-73.7695658,nominatim
+NY,Harpursville,42.1784124,-75.6246298,nominatim
+NY,Hogansburg,44.9739364,-74.6632416,nominatim
+NY,Irving,42.5675589,-79.1128169,nominatim
+NY,New Hampton,41.4098658,-74.4117435,nominatim
+NY,West Coxsackie,42.3606399,-73.8167921,nominatim
+OH,Alvada,41.0503322,-83.4018693,nominatim
+OH,Diamond,41.0989463,-81.022871,nominatim
+OH,North Jackson,41.1001272,-80.8571741,nominatim
+OK,Pryor,36.3084275,-95.3169136,nominatim
+PA,Blakeslee,41.0925133,-75.5926681,nominatim
+PA,Breezewood,39.9990119,-78.2404221,nominatim
+PA,Brogue,39.8723546,-76.4846387,nominatim
+PA,Drums,41.018139,-75.9949252,nominatim
+PA,Etters,,,not_found
+PA,Feasterville Trevose,40.1484058,-74.9934733,nominatim
+PA,Greentown,41.321755,-75.3054585,nominatim
+PA,Lake Ariel,41.4539745,-75.382681,nominatim
+PA,Middlebury Center,41.8436841,-77.2744202,nominatim
+PA,Monroeton,41.7125751,-76.4746649,nominatim
+PA,Tafton,41.404534,-75.1829535,nominatim
+PA,Waterfall,40.1275826,-78.0627822,nominatim
+SC,Batesburg,33.9079201,-81.5473262,nominatim
+SC,Johns Island,32.69485,-80.03425,nominatim
+SC,Leesville,33.916532,-81.5134368,nominatim
+SC,Longs,33.9385274,-78.7330522,nominatim
+SC,Round O,32.9371151,-80.5409352,nominatim
+SC,Townville,34.5637137,-82.8984775,nominatim
+TN,Antioch,36.0600602,-86.6722192,nominatim
+TN,Cedar Grove,36.2517196,-86.5277724,nominatim
+TN,Denmark,35.5328546,-89.003952,nominatim
+TN,Hartford,35.8167646,-83.1432066,nominatim
+TN,Heiskell,36.081816,-84.0539821,nominatim
+TN,Hurricane Mills,35.9711736,-87.781969,nominatim
+TN,Joelton,36.3131076,-86.8652772,nominatim
+TN,Kodak,35.9745323,-83.6268396,nominatim
+TN,Pioneer,36.4175798,-84.3140995,nominatim
+TX,Chappell Hill,30.141529,-96.2567185,nominatim
+TX,Hankamer,29.8582755,-94.6268618,nominatim
+TX,Lenorah,32.30456,-101.8762483,nominatim
+TX,Maxwell,29.881897,-97.7956423,nominatim
+TX,Orla,31.8250149,-103.9090099,nominatim
+TX,Pecos,30.7857437,-102.8065415,nominatim
+TX,Prairie Hill,30.2488239,-96.3771874,nominatim
+TX,Roans Prairie,30.5836549,-95.943324,nominatim
+TX,Wall,31.3743455,-100.30366,nominatim
+VA,Chesterfield,37.3859982,-77.578509,nominatim
+VA,Clear Brook,39.2564912,-78.096111,nominatim
+VA,Cross Junction,39.3203785,-78.2933382,nominatim
+VA,Doswell,37.8601402,-77.4641492,nominatim
+VA,Drewryville,36.7157055,-77.3063603,nominatim
+VA,Gladstone,37.5468094,-78.8494619,nominatim
+VA,Gum Spring,37.7755262,-77.8968114,nominatim
+VA,Henrico,37.5131191,-77.3465081,nominatim
+VA,Lambsburg,36.5854078,-80.7611817,nominatim
+VA,Lanexa,37.4237573,-76.9010753,nominatim
+VA,Providence Forge,37.4424264,-77.0439583,nominatim
+VA,Quinton,37.5327893,-77.1154448,nominatim
+VA,Raphine,37.9373548,-79.2328102,nominatim
+VA,Rockville,37.7259779,-77.6783239,nominatim
+VA,Rosedale,36.9592782,-81.9312351,nominatim
+VA,Ruther Glen,37.9408753,-77.4618647,nominatim
+VA,Skippers,36.6118169,-77.5466463,nominatim
+VA,Townsend,37.1849815,-75.958473,nominatim
+VA,Troy,37.9509737,-78.2463934,nominatim
+VA,Woodford,38.1131886,-77.4088708,nominatim
+WI,Colgate,43.1928301,-88.2067737,nominatim
+WI,Franksville,42.7600188,-87.9134133,nominatim
+WI,Larsen,44.1916501,-88.623999,nominatim
+WV,Ivydale,38.310097,-81.7045688,nominatim
+WV,Kearneysville,39.3881556,-77.8855516,nominatim
+WV,Mount Nebo,39.6023047,-79.7078303,nominatim
+WV,Teays,38.449426,-81.9405368,nominatim

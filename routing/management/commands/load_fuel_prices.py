@@ -60,7 +60,10 @@ class Command(BaseCommand):
             )
             removed = 0
             if not options['keep_missing']:
-                keep = {s.opis_id for s in located}
+                # Every station in the CSV stays, even if its city couldn't be
+                # located this run (e.g. a transient Nominatim error): it keeps its
+                # previous row until a later run locates it.
+                keep = {s.opis_id for s in stations}
                 removed, _ = FuelStation.objects.exclude(opis_id__in=keep).delete()
             version = DataVersion.bump()
 

@@ -24,20 +24,27 @@ pip install -r requirements.txt
 cp .env.example .env          # then set ORS_API_KEY (free key from openrouteservice.org)
 python manage.py migrate
 
-# US places from the 2026 Census Gazetteer (downloads into data/, about 6 s)
+# US places: the 2026 Census Gazetteer (downloaded into data/, about 6 s),
+# plus data/geocoded_cities.csv for the cities the Census files don't list
 python manage.py load_places
 
 # Fuel stations from the CSV
-python manage.py load_fuel_prices data/fuel-prices-for-be-assessment.csv --skip-nominatim
+python manage.py load_fuel_prices data/fuel-prices-for-be-assessment.csv
 
 python manage.py runserver
 ```
 
-`--skip-nominatim` keeps setup offline apart from the Census download. In this
-mode the 197 stations (3% of 6,626) in the 143 cities that the Census files
-don't list are skipped, leaving 6,429. Without the flag, the loader looks those cities up
-once on OpenStreetMap Nominatim (1 request per second, about 2.5 minutes) and
-stores the answers, so later loads make no calls.
+Setup makes no external calls except downloading the Census files; each route
+request makes exactly one ORS call (none on a cache hit). 6,620 of the 6,626 US
+stations in the CSV get coordinates; the other 6 are in 5 places that no
+source could find (listed by the loader).
+
+The 143 station cities missing from the Census files were looked up once on
+OpenStreetMap Nominatim and committed in `data/geocoded_cities.csv` (138 found,
+5 recorded as not found). Census coordinates always take precedence. If a
+future CSV adds new cities, `load_fuel_prices` looks up only those (1 request
+per second, or skip with `--skip-nominatim`), and `python manage.py
+export_geocoded_cities` refreshes the file.
 
 Run the tests with `python manage.py test routing`. They never call ORS: they
 use a mocked client or the saved responses in `routing/tests/fixtures/`.

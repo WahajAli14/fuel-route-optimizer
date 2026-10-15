@@ -10,13 +10,15 @@ from django.db import transaction
 
 from routing.models import CityCoord, DataVersion
 from routing.services.city_index import place_priority
+from routing.services.geocoded_cities import read_rows
 from routing.services.places import PlaceIndex, read_cousubs, read_places
 
 CENSUS_SOURCES = [CityCoord.SOURCE_CENSUS_PLACE, CityCoord.SOURCE_CENSUS_COUSUB]
 
 
 class Command(BaseCommand):
-    help = 'Load US city coordinates from the Census Gazetteer Places and County Subdivisions files.'
+    help = ('Load US city coordinates from the Census Gazetteer Places and County Subdivisions '
+            'files, then the committed geocoded_cities.csv for cities the Census lacks.')
 
     def add_arguments(self, parser):
         parser.add_argument('--redownload', action='store_true',
@@ -44,7 +46,10 @@ class Command(BaseCommand):
                 unique_fields=['state', 'key'],
                 update_fields=['name', 'lat', 'lng', 'source', 'priority', 'land_area'],
             )
-            # In-memory city indexes are keyed on the data version.
+            # Then the exported Nominatim answers. Census always wins: a city
+            # matched above (or already stored) is never overwritten.
+            geocoded = self.load_geocoded()
+            # In-memory city indexes and cached routes are keyed on the data version.
             version = DataVersion.bump()
 
         by_source = {s: sum(r.source == s for r in rows) for s in CENSUS_SOURCES}
@@ -55,6 +60,19 @@ class Command(BaseCommand):
             f'replaced {removed:,} old rows) in {time.monotonic() - started:.1f}s. '
             f'Data version is now v{version}.'
         ))
+        if geocoded is not None:
+            self.stdout.write(f'{settings.GEOCODED_CITIES_FILE}: {geocoded[0]:,} rows, '
+                              f'{geocoded[1]:,} added (others already known, Census first).')
+
+    def load_geocoded(self):
+        """Insert rows from the geocoded cities file without touching existing keys."""
+        path = settings.DATA_DIR / settings.GEOCODED_CITIES_FILE
+        if not path.exists():
+            return None
+        rows = list(read_rows(path))
+        before = CityCoord.objects.count()
+        CityCoord.objects.bulk_create(rows, batch_size=2000, ignore_conflicts=True)
+        return len(rows), CityCoord.objects.count() - before
 
     def ensure_file(self, name, redownload):
         txt_path = settings.DATA_DIR / f'{name}.txt'

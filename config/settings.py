@@ -224,3 +224,5 @@ DATA_DIR = BASE_DIR / 'data'
 CENSUS_GAZETTEER_URL = 'https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2026_Gazetteer/'
 CENSUS_PLACES_FILE = '2026_Gaz_place_national'
 CENSUS_COUSUBS_FILE = '2026_Gaz_cousubs_national'
+# Committed Nominatim answers for cities the Census files lack (see export_geocoded_cities).
+GEOCODED_CITIES_FILE = 'geocoded_cities.csv'

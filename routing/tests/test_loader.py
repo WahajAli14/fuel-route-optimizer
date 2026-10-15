@@ -1,8 +1,11 @@
 import csv
 import tempfile
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from unittest import mock
+
+import requests
 
 from django.core.management import CommandError, call_command
 from django.test import TestCase, override_settings
@@ -104,3 +107,76 @@ class LoaderCommandTests(TestCase):
         self.assertEqual(self.geocode.call_count, 1)
         self.run_cmd('load_fuel_prices', path, '--retry-not-found')
         self.assertEqual(self.geocode.call_count, 2)
+
+    def test_station_in_csv_is_kept_when_its_city_fails_to_geocode(self):
+        """Regression: pruning used to keep only stations located in this run."""
+        self.run_cmd('load_places')
+        price = Decimal('3.0000')
+        FuelStation.objects.create(opis_id=5, name='OLD STOP', address='I-1', city='Tomah',
+                                   state='WI', rack_id=1, price=price, min_price=price,
+                                   max_price=price, lat=43.98, lng=-90.50)
+        self.geocode.side_effect = requests.ConnectionError('Nominatim is down')
+        # The station moved to a city we have never geocoded, and the lookup fails.
+        path = self.write_csv([[5, 'OLD STOP', 'I-1', 'Erroville', 'WI', 1, '3.10'],
+                               [1, 'KWIK TRIP', 'I-94', 'Tomah', 'WI', 420, '3.10']])
+        out = self.run_cmd('load_fuel_prices', path)
+        self.assertIn('Stations removed (not in CSV):     0', out)
+        self.assertEqual(FuelStation.objects.get(opis_id=5).city, 'Tomah')  # previous row kept
+        self.assertFalse(CityCoord.objects.filter(key='erroville').exists())  # not recorded as a miss
+
+        # A station that is really gone from the CSV is still removed.
+        self.geocode.side_effect = self.fake_geocode
+        out = self.run_cmd('load_fuel_prices', self.write_csv(
+            [[1, 'KWIK TRIP', 'I-94', 'Tomah', 'WI', 420, '3.10']], 'v2.csv'))
+        self.assertIn('Stations removed (not in CSV):     1', out)
+
+    def write_geocoded(self, rows):
+        with open(self.data_dir / 'geocoded_cities.csv', 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['state', 'name', 'lat', 'lng', 'source'])
+            writer.writerows(rows)
+
+    def test_load_places_adds_geocoded_cities_without_overriding_census(self):
+        self.write_geocoded([
+            ['PA', 'Breezewood', 39.99, -78.24, 'nominatim'],
+            ['NV', 'Ghost Town', '', '', 'not_found'],
+            ['WI', 'Tomah', 1.0, 1.0, 'nominatim'],  # Census has Tomah: must not win
+        ])
+        version = DataVersion.current()
+        out = self.run_cmd('load_places')
+        self.assertIn('geocoded_cities.csv: 3 rows, 2 added', out)
+        self.assertEqual(DataVersion.current(), version + 1)
+        tomah = CityCoord.objects.get(state='WI', key='tomah')
+        self.assertEqual((tomah.lat, tomah.source), (43.98, CityCoord.SOURCE_CENSUS_PLACE))
+        self.assertEqual(CityCoord.objects.get(key='breezewood').source, CityCoord.SOURCE_NOMINATIM)
+        self.assertEqual(CityCoord.objects.get(key='ghost town').source, CityCoord.SOURCE_NOT_FOUND)
+
+        # With the file loaded, a full fuel load makes no Nominatim calls.
+        out = self.run_cmd('load_fuel_prices', self.write_csv([
+            [1, 'KWIK TRIP', 'I-94', 'Tomah', 'WI', 420, '3.10'],
+            [2, 'TA', 'I-76', 'Breezewood', 'PA', 1, '3.50'],
+            [3, 'NOWHERE STOP', 'I-1', 'Ghost Town', 'NV', 1, '3.00'],
+        ]))
+        self.assertEqual(self.geocode.call_count, 0)
+        self.assertEqual(sorted(FuelStation.objects.values_list('opis_id', flat=True)), [1, 2])
+
+        # Reloading places again keeps the same answers (idempotent).
+        self.assertIn('3 rows, 0 added', self.run_cmd('load_places'))
+
+    def test_export_round_trip(self):
+        self.run_cmd('load_places')
+        self.run_cmd('load_fuel_prices', self.write_csv([
+            [2, 'TA', 'I-76', 'Breezewood', 'PA', 1, '3.50'],
+            [3, 'NOWHERE STOP', 'I-1', 'Ghost Town', 'NV', 1, '3.00'],
+        ]))
+        out = self.run_cmd('export_geocoded_cities')
+        self.assertIn('Wrote 2 cities', out)
+        with open(self.data_dir / 'geocoded_cities.csv') as f:
+            self.assertEqual(f.read().splitlines(), [
+                'state,name,lat,lng,source',
+                'NV,Ghost Town,,,not_found',
+                'PA,Breezewood,39.99,-78.24,nominatim',
+            ])
+        CityCoord.objects.filter(source__in=['nominatim', 'not_found']).delete()
+        self.run_cmd('load_places')
+        self.assertEqual(CityCoord.objects.get(key='breezewood').lat, 39.99)
