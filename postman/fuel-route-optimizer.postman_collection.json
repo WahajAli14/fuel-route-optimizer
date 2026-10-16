@@ -1,0 +1,510 @@
+{
+  "info": {
+    "name": "Fuel Route Optimizer",
+    "description": "Demo and checks for POST /api/route/. Start the server first: python manage.py runserver. Run in order: #4 and #5 rely on #3 being cached. Uncached route requests (#2, #3, #6) each use one ORS call.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base}}/health/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "health",
+            ""
+          ]
+        },
+        "description": ""
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"ORS key configured\", () => pm.expect(r.ors_key_configured).to.eql(true));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Short route: Dallas -> Houston",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "Under 500 miles: expect one fuel stop.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Dallas, TX\",\n  \"finish\": \"Houston, TX\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"gallons cover every mile\", () => pm.expect(r.total_gallons * 10).to.be.closeTo(r.total_driving_miles, 0.5));",
+              "  pm.test(\"stop costs add up to the total\", () => { const s = r.fuel_stops.reduce((a, x) => a + x.cost, 0); pm.expect(s).to.be.closeTo(r.total_fuel_cost, 0.05); });",
+              "  pm.test(\"at most one routing call\", () => pm.expect(r.meta.external_api_calls).to.be.at.most(1));",
+              "  pm.test(\"stations are city-level\", () => r.fuel_stops.forEach(s => pm.expect(s.location.precision).to.eql(\"city\")));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Cross-country: Chicago -> Los Angeles (cold)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "First send after a server restart is a cache miss: one ORS call.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Los Angeles, CA\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"gallons cover every mile\", () => pm.expect(r.total_gallons * 10).to.be.closeTo(r.total_driving_miles, 0.5));",
+              "  pm.test(\"stop costs add up to the total\", () => { const s = r.fuel_stops.reduce((a, x) => a + x.cost, 0); pm.expect(s).to.be.closeTo(r.total_fuel_cost, 0.05); });",
+              "  pm.test(\"at most one routing call\", () => pm.expect(r.meta.external_api_calls).to.be.at.most(1));",
+              "  pm.test(\"stations are city-level\", () => r.fuel_stops.forEach(s => pm.expect(s.location.precision).to.eql(\"city\")));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Same route again (cached)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "Run after #3: cache hit, zero routing calls, about 1 ms.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Los Angeles, CA\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"gallons cover every mile\", () => pm.expect(r.total_gallons * 10).to.be.closeTo(r.total_driving_miles, 0.5));",
+              "  pm.test(\"stop costs add up to the total\", () => { const s = r.fuel_stops.reduce((a, x) => a + x.cost, 0); pm.expect(s).to.be.closeTo(r.total_fuel_cost, 0.05); });",
+              "  pm.test(\"at most one routing call\", () => pm.expect(r.meta.external_api_calls).to.be.at.most(1));",
+              "  pm.test(\"stations are city-level\", () => r.fuel_stops.forEach(s => pm.expect(s.location.precision).to.eql(\"city\")));",
+              "  pm.test(\"served from cache\", () => { pm.expect(r.meta.cache_hit).to.eql(true); pm.expect(r.meta.external_api_calls).to.eql(0); });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Equivalent spelling (cached, own query echoed)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "Same places as #3, different spelling: shares the cache entry but returns its own query text.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"chicago, illinois\",\n  \"finish\": \"los angeles, california\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"gallons cover every mile\", () => pm.expect(r.total_gallons * 10).to.be.closeTo(r.total_driving_miles, 0.5));",
+              "  pm.test(\"stop costs add up to the total\", () => { const s = r.fuel_stops.reduce((a, x) => a + x.cost, 0); pm.expect(s).to.be.closeTo(r.total_fuel_cost, 0.05); });",
+              "  pm.test(\"at most one routing call\", () => pm.expect(r.meta.external_api_calls).to.be.at.most(1));",
+              "  pm.test(\"stations are city-level\", () => r.fuel_stops.forEach(s => pm.expect(s.location.precision).to.eql(\"city\")));",
+              "  pm.test(\"served from cache\", () => pm.expect(r.meta.cache_hit).to.eql(true));",
+              "  pm.test(\"echoes this caller's text\", () => pm.expect(r.start.query).to.eql(\"chicago, illinois\"));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. With $5 stop penalty",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "Compare with #3: fewer stops, slightly higher total_fuel_cost.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Los Angeles, CA\",\n  \"stop_penalty\": 5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"gallons cover every mile\", () => pm.expect(r.total_gallons * 10).to.be.closeTo(r.total_driving_miles, 0.5));",
+              "  pm.test(\"stop costs add up to the total\", () => { const s = r.fuel_stops.reduce((a, x) => a + x.cost, 0); pm.expect(s).to.be.closeTo(r.total_fuel_cost, 0.05); });",
+              "  pm.test(\"at most one routing call\", () => pm.expect(r.meta.external_api_calls).to.be.at.most(1));",
+              "  pm.test(\"stations are city-level\", () => r.fuel_stops.forEach(s => pm.expect(s.location.precision).to.eql(\"city\")));",
+              "  pm.test(\"penalty reported in meta\", () => pm.expect(r.meta.stop_penalty_dollars).to.eql(5));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Error: Canadian city name",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Toronto, ON\",\n  \"finish\": \"Chicago, IL\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"invalid start\", () => { pm.expect(r.error.code).to.eql(\"invalid_location\"); pm.expect(r.error.field).to.eql(\"start\"); });",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Error: Canadian coordinates",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"43.6532,-79.3832\",\n  \"finish\": \"Chicago, IL\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"invalid start\", () => pm.expect(r.error.code).to.eql(\"invalid_location\"));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Error: missing finish",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"validation error\", () => pm.expect(r.error.code).to.eql(\"invalid_request\"));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10. Error: corridor out of range",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base}}/route/",
+          "host": [
+            "{{base}}"
+          ],
+          "path": [
+            "route",
+            ""
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"Dallas, TX\",\n  \"corridor_miles\": 100\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"status 400\", () => pm.response.to.have.status(400));",
+              "const isJson = (pm.response.headers.get(\"Content-Type\") || \"\").includes(\"application/json\");",
+              "pm.test(\"response is JSON\", () => pm.expect(isJson, \"got HTML: check the URL ends with a slash and see the server log\").to.be.true);",
+              "const r = isJson ? pm.response.json() : null;",
+              "if (r) {",
+              "  pm.test(\"validation error\", () => pm.expect(r.error.code).to.eql(\"invalid_request\"));",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base",
+      "value": "http://127.0.0.1:8000/api"
+    }
+  ]
+}
